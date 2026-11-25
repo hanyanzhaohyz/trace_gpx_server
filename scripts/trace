@@ -1,0 +1,51 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# 迹 Trace 短命令：trace / trace restart / trace stop / trace status
+set -euo pipefail
+
+export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export PATH="$PREFIX/bin:$PATH"
+export HOME="${HOME:-/data/data/com.termux/files/home}"
+
+START_SH="/sdcard/trace_gps/termux-start.sh"
+PORT="${PORT:-4173}"
+CMD="${1:-restart}"
+# Termux 没有系统 /tmp，日志写到家目录
+LOG="${HOME}/trace-start.log"
+
+case "$CMD" in
+  restart|start|"")
+    if [[ ! -f "$START_SH" ]]; then
+      echo "[迹] 找不到 $START_SH，请先在电脑执行 npm run deploy:phone"
+      exit 1
+    fi
+    # nohup 后台重启，关掉当前会话也不被杀掉
+    : >"$LOG"
+    nohup bash "$START_SH" >"$LOG" 2>&1 </dev/null &
+    disown 2>/dev/null || true
+    echo "[迹] 已重启，日志 $LOG"
+    echo "[迹] 打开 http://127.0.0.1:$PORT"
+    ;;
+  stop)
+    pkill -f "node server.mjs" 2>/dev/null || true
+    echo "[迹] 已停止"
+    ;;
+  status)
+    if pgrep -f "node server.mjs" >/dev/null 2>&1; then
+      echo "[迹] 运行中 (port $PORT)"
+      pgrep -af "node server.mjs" || true
+    else
+      echo "[迹] 未运行"
+    fi
+    ;;
+  help|-h|--help)
+    echo "用法: trace [restart|stop|status]"
+    echo "  trace          重启服务（默认）"
+    echo "  trace restart  同上"
+    echo "  trace stop     停止服务"
+    echo "  trace status   查看是否在跑"
+    ;;
+  *)
+    echo "未知命令: $CMD （trace help 查看用法）"
+    exit 1
+    ;;
+esac
