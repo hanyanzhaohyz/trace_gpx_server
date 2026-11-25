@@ -186,6 +186,31 @@ function cacheIsFresh(files) {
   return true
 }
 
+/** 文件名集合是否一致（忽略正在写入的 GPX 的 size/mtime 抖动） */
+function cacheNamesMatch(files) {
+  const meta = readMeta()
+  if (!meta?.files || !fs.existsSync(BUNDLE_PATH)) return false
+  if (meta.files.length !== files.length) return false
+  const a = meta.files.map((f) => f.name).sort()
+  const b = files.map((f) => f.name).sort()
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false
+  }
+  return true
+}
+
+function loadBundleFromDisk() {
+  if (!fs.existsSync(BUNDLE_PATH)) return null
+  const raw = zlib.gunzipSync(fs.readFileSync(BUNDLE_PATH))
+  memBundle = JSON.parse(raw.toString('utf8'))
+  const meta = readMeta()
+  cacheState.ready = true
+  cacheState.trackCount =
+    meta?.trackCount ?? memBundle?.tracks?.length ?? 0
+  cacheState.builtAt = meta?.builtAt ?? memBundle?.builtAt ?? null
+  return memBundle
+}
+
 function buildCacheSync() {
   if (USE_ADB) {
     throw new Error('adb 模式不支持服务端缓存，请用本机 GPX_DIR')
@@ -277,8 +302,10 @@ function getBundle() {
   if (!fs.existsSync(BUNDLE_PATH)) {
     throw Object.assign(new Error('缓存不可用'), { status: 500 })
   }
-  const raw = zlib.gunzipSync(fs.readFileSync(BUNDLE_PATH))
-  memBundle = JSON.parse(raw.toString('utf8'))
+  loadBundleFromDisk()
+  if (!memBundle?.tracks?.length) {
+    throw Object.assign(new Error('缓存不可用'), { status: 500 })
+  }
   return memBundle
 }
 
@@ -310,6 +337,7 @@ function ensureCache() {
   if (USE_ADB) return null
   const files = listGpxFiles()
   if (cacheIsFresh(files)) {
+    if (!memBundle) loadBundleFromDisk()
     cacheState.ready = true
     const meta = readMeta()
     cacheState.trackCount = meta?.trackCount ?? 0
@@ -318,7 +346,24 @@ function ensureCache() {
     cacheState.done = files.length
     return 'fresh'
   }
+  // 正在录音的 GPX 会不断改 size/mtime，不能因此全量重建（会卡死/OOM）
+  // 文件名集合没变：复用磁盘缓存，保证网站可访问
+  if (cacheNamesMatch(files)) {
+    if (!memBundle) loadBundleFromDisk()
+    cacheState.ready = true
+    cacheState.total = files.length
+    cacheState.done = files.length
+    return 'stale-ok'
+  }
   if (cacheState.building) return 'building'
+  // 已有旧缓存时先加载再重建，避免重建期间完全不可用
+  if (!memBundle && fs.existsSync(BUNDLE_PATH)) {
+    try {
+      loadBundleFromDisk()
+    } catch {
+      /* ignore */
+    }
+  }
   buildCacheSync()
   return 'built'
 }

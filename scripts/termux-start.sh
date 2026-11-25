@@ -77,4 +77,6 @@ echo "[迹] 源码: $APP_HOME/src"
 echo "[迹] GPX_DIR=$GPX_DIR"
 echo "[迹] 启动 http://0.0.0.0:$PORT"
 termux-wake-lock 2>/dev/null || true
-exec env PORT="$PORT" GPX_DIR="$GPX_DIR" node server.mjs
+# 手机内存紧，给 Node 更大堆，避免 GPX 缓存 OOM
+export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}"
+exec env PORT="$PORT" GPX_DIR="$GPX_DIR" NODE_OPTIONS="$NODE_OPTIONS" node server.mjs

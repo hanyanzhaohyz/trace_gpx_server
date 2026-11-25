@@ -22,9 +22,3 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-
-cache/
-server.pid
-*.log
-.venv/
-.pydeps/
