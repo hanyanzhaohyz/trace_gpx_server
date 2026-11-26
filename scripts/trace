@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# 迹 Trace 短命令：trace / trace restart / trace stop / trace status
+# 迹 Trace 短命令：trace / trace restart / trace stop / trace status / trace rebuild
 set -euo pipefail
 
 export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
@@ -8,6 +8,7 @@ export HOME="${HOME:-/data/data/com.termux/files/home}"
 
 START_SH="/sdcard/trace_gps/termux-start.sh"
 PORT="${PORT:-4173}"
+BASE="http://127.0.0.1:$PORT"
 CMD="${1:-restart}"
 # Termux 没有系统 /tmp，日志写到家目录
 LOG="${HOME}/trace-start.log"
@@ -23,7 +24,7 @@ case "$CMD" in
     nohup bash "$START_SH" >"$LOG" 2>&1 </dev/null &
     disown 2>/dev/null || true
     echo "[迹] 已重启，日志 $LOG"
-    echo "[迹] 打开 http://127.0.0.1:$PORT"
+    echo "[迹] 打开 $BASE"
     ;;
   stop)
     pkill -f "node server.mjs" 2>/dev/null || true
@@ -37,12 +38,36 @@ case "$CMD" in
       echo "[迹] 未运行"
     fi
     ;;
+  rebuild)
+    if ! pgrep -f "node server.mjs" >/dev/null 2>&1; then
+      echo "[迹] 服务未运行，请先执行: trace restart"
+      exit 1
+    fi
+    echo "[迹] 正在强制重建解析缓存…"
+    # 重建可能较久（数百 GPX），给足超时
+    if command -v curl >/dev/null 2>&1; then
+      out="$(curl -fsS -m 600 -X POST "$BASE/api/cache/rebuild" 2>&1)" || {
+        echo "[迹] 重建失败: $out"
+        exit 1
+      }
+    elif command -v wget >/dev/null 2>&1; then
+      out="$(wget -q -O - --timeout=600 --post-data='' "$BASE/api/cache/rebuild" 2>&1)" || {
+        echo "[迹] 重建失败: $out"
+        exit 1
+      }
+    else
+      echo "[迹] 需要 curl 或 wget（pkg install curl）"
+      exit 1
+    fi
+    echo "[迹] 重建完成: $out"
+    ;;
   help|-h|--help)
-    echo "用法: trace [restart|stop|status]"
+    echo "用法: trace [restart|stop|status|rebuild]"
     echo "  trace          重启服务（默认）"
     echo "  trace restart  同上"
     echo "  trace stop     停止服务"
     echo "  trace status   查看是否在跑"
+    echo "  trace rebuild  强制重建 GPX 解析缓存"
     ;;
   *)
     echo "未知命令: $CMD （trace help 查看用法）"

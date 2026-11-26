@@ -24,10 +24,11 @@ cp "$APP_SD/mapServe.mjs" "$APP_HOME/" 2>/dev/null || true
 cp "$APP_SD/package.json" "$APP_HOME/" 2>/dev/null || true
 
 # 源码目录
-rm -rf "$APP_HOME/src" "$APP_HOME/public" "$APP_HOME/scripts"
+rm -rf "$APP_HOME/src" "$APP_HOME/public" "$APP_HOME/scripts" "$APP_HOME/docs"
 [[ -d "$APP_SD/src" ]] && cp -R "$APP_SD/src" "$APP_HOME/"
 [[ -d "$APP_SD/public" ]] && cp -R "$APP_SD/public" "$APP_HOME/"
 [[ -d "$APP_SD/scripts" ]] && cp -R "$APP_SD/scripts" "$APP_HOME/"
+[[ -d "$APP_SD/docs" ]] && cp -R "$APP_SD/docs" "$APP_HOME/"
 
 # 工程配置文件
 for f in \

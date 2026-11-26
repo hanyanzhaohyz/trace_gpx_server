@@ -2,6 +2,8 @@
 
 GPX 轨迹点可视化：抽稀展示、时间范围筛选、多底图；可部署到安卓 Termux，电脑与手机浏览器都能打开。
 
+![迹 Trace 效果图](docs/screenshot.jpg)
+
 ## 功能
 
 - 上传 / 自动加载设备 `/storage/emulated/0/gpx` 下全部 `.gpx`

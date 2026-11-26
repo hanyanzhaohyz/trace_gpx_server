@@ -11,6 +11,19 @@ node_modules
 dist
 dist-ssr
 *.local
+.local/
+
+# GPX 解析缓存（本地/手机各自生成，勿提交）
+cache/
+
+# 运行时 / 本机环境
+server.pid
+*.tsbuildinfo
+.venv/
+.pydeps/
+
+# 旧启动脚本（已被 scripts/termux-start.sh + trace 替代）
+/run.sh
 
 # Editor directories and files
 .vscode/*

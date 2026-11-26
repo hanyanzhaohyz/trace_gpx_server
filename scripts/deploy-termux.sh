@@ -37,10 +37,13 @@ echo "==> 推送到手机 $REMOTE_SD"
 
 # 源码（不含 node_modules）
 echo "==> 同步源码"
-"$ADB" shell "rm -rf $REMOTE_SD/src $REMOTE_SD/public $REMOTE_SD/scripts"
+"$ADB" shell "rm -rf $REMOTE_SD/src $REMOTE_SD/public $REMOTE_SD/scripts $REMOTE_SD/docs"
 "$ADB" push "$ROOT/src" "$REMOTE_SD/"
 "$ADB" push "$ROOT/public" "$REMOTE_SD/"
 "$ADB" push "$ROOT/scripts" "$REMOTE_SD/"
+if [[ -d "$ROOT/docs" ]]; then
+  "$ADB" push "$ROOT/docs" "$REMOTE_SD/"
+fi
 for f in \
   index.html \
   vite.config.ts \
