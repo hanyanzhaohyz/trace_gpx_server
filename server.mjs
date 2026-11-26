@@ -9,8 +9,11 @@
  *   ADB_GPX_DIR   默认 /storage/emulated/0/gpx
  *   ADB           adb 可执行文件，默认 adb
  *   CACHE_DIR     解析缓存目录，默认 <cwd>/cache
+ *   AMAP_KEY                 高德 Web 端(JS API) Key
+ *   AMAP_SECURITY_JS_CODE    高德安全密钥（仅服务端；经 /_AMapService 注入）
  */
 import http from 'node:http'
+import https from 'node:https'
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
@@ -34,6 +37,11 @@ const USE_ADB = process.env.GPX_SOURCE === 'adb'
 const CACHE_DIR = process.env.CACHE_DIR || path.join(__dirname, 'cache')
 const BUNDLE_PATH = path.join(CACHE_DIR, 'tracks.bundle.json.gz')
 const META_PATH = path.join(CACHE_DIR, 'tracks.meta.json')
+const AMAP_KEY = String(process.env.AMAP_KEY || '').trim()
+const AMAP_SECURITY_JS_CODE = String(
+  process.env.AMAP_SECURITY_JS_CODE || '',
+).trim()
+const AMAP_OFFICIAL = Boolean(AMAP_KEY && AMAP_SECURITY_JS_CODE)
 
 /** 内存中的解析包（只服务端持有，勿整包发给浏览器） */
 let memBundle = null
@@ -441,6 +449,11 @@ const server = http.createServer((req, res) => {
       mode: USE_ADB ? 'adb' : 'local',
       gpxDir: gpxDirLabel,
       count,
+      amap: {
+        official: AMAP_OFFICIAL,
+        keyConfigured: Boolean(AMAP_KEY),
+        securityConfigured: Boolean(AMAP_SECURITY_JS_CODE),
+      },
       cache: {
         ready: cacheState.ready,
         building: cacheState.building,
@@ -452,6 +465,31 @@ const server = http.createServer((req, res) => {
             : null,
       },
     })
+    return
+  }
+
+  // 高德官方 JS API：浏览器只拿 key + serviceHost，安全密钥留在服务端
+  if (url.pathname === '/api/amap/config') {
+    if (!AMAP_OFFICIAL) {
+      sendJson(res, 200, {
+        configured: false,
+        reason:
+          '未配置 AMAP_KEY / AMAP_SECURITY_JS_CODE（Termux 环境变量）',
+      })
+      return
+    }
+    sendJson(res, 200, {
+      configured: true,
+      key: AMAP_KEY,
+      // 前端会拼成 location.origin + '/_AMapService'（必须是绝对地址的一级路径）
+      serviceHost: '/_AMapService',
+    })
+    return
+  }
+
+  // 官方推荐：/_AMapService 反代并注入 jscode
+  if (url.pathname === '/_AMapService' || url.pathname.startsWith('/_AMapService/')) {
+    proxyAmapService(req, res, url)
     return
   }
 
@@ -581,6 +619,68 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res, url.pathname)
 })
 
+/**
+ * 高德 JS API 安全密钥代理（官方推荐，密钥不进浏览器）
+ * @param {http.IncomingMessage} req
+ * @param {http.ServerResponse} res
+ * @param {URL} url
+ */
+function proxyAmapService(req, res, url) {
+  if (!AMAP_OFFICIAL) {
+    res.writeHead(503).end('AMAP not configured')
+    return
+  }
+  const sub = url.pathname.slice('/_AMapService'.length) || '/'
+  const qs = new URLSearchParams(url.searchParams)
+  qs.set('jscode', AMAP_SECURITY_JS_CODE)
+
+  let upstreamBase = 'https://restapi.amap.com'
+  // 自定义地图样式走 webapi
+  if (sub.startsWith('/v4/map/styles') || sub.startsWith('/v3/vector-style')) {
+    upstreamBase = 'https://webapi.amap.com'
+  }
+  const upstreamUrl = `${upstreamBase}${sub}?${qs.toString()}`
+
+  const lib = upstreamUrl.startsWith('https') ? https : http
+  const reqUp = lib.request(
+    upstreamUrl,
+    {
+      method: req.method || 'GET',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Referer: 'https://www.amap.com/',
+        Accept: req.headers.accept || '*/*',
+      },
+      timeout: 15000,
+    },
+    (up) => {
+      const status = up.statusCode || 502
+      const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': up.headers['cache-control'] || 'no-store',
+      }
+      if (up.headers['content-type']) {
+        headers['Content-Type'] = up.headers['content-type']
+      }
+      res.writeHead(status, headers)
+      up.pipe(res)
+    },
+  )
+  reqUp.on('timeout', () => {
+    reqUp.destroy()
+    if (!res.headersSent) res.writeHead(504).end('amap service timeout')
+  })
+  reqUp.on('error', () => {
+    if (!res.headersSent) res.writeHead(502).end('amap service proxy failed')
+  })
+  if (req.method === 'POST' || req.method === 'PUT') {
+    req.pipe(reqUp)
+  } else {
+    reqUp.end()
+  }
+}
+
 server.listen(PORT, '0.0.0.0', () => {
   let files = []
   try {
@@ -591,6 +691,9 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`[迹 Trace] http://0.0.0.0:${PORT}`)
   console.log(`[迹 Trace] mode=${USE_ADB ? 'adb' : 'local'} dir=${gpxDirLabel}`)
   console.log(`[迹 Trace] ${files.length} gpx files`)
+  console.log(
+    `[迹 Trace] 高德官方 JS API: ${AMAP_OFFICIAL ? '已配置' : '未配置（缺 AMAP_KEY/AMAP_SECURITY_JS_CODE）'}`,
+  )
 
   // 启动后后台预热缓存，避免首次打开网页卡很久
   if (!USE_ADB && files.length) {

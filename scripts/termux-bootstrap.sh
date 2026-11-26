@@ -6,6 +6,8 @@ export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 export PATH="$PREFIX/bin:$PATH"
 export HOME="${HOME:-/data/data/com.termux/files/home}"
 export TMPDIR="${TMPDIR:-$PREFIX/tmp}"
+# shellcheck disable=SC1091
+[[ -f "$PREFIX/etc/profile.d/amap.sh" ]] && source "$PREFIX/etc/profile.d/amap.sh"
 
 APP_SD="/sdcard/trace_gps"
 APP_HOME="$HOME/trace_gps"
@@ -62,7 +64,12 @@ cd "$APP_HOME"
 echo "[迹] GPX_DIR=$GPX_DIR"
 echo "[迹] 启动 http://0.0.0.0:$PORT"
 termux-wake-lock 2>/dev/null || true
-nohup env PORT="$PORT" GPX_DIR="$GPX_DIR" node server.mjs >"$APP_HOME/server.log" 2>&1 &
+nohup env \
+  PORT="$PORT" \
+  GPX_DIR="$GPX_DIR" \
+  AMAP_KEY="${AMAP_KEY:-}" \
+  AMAP_SECURITY_JS_CODE="${AMAP_SECURITY_JS_CODE:-}" \
+  node server.mjs >"$APP_HOME/server.log" 2>&1 &
 echo $! >"$APP_HOME/server.pid"
 sleep 1
 if ss -ltn 2>/dev/null | grep -q ":$PORT" || netstat -ltn 2>/dev/null | grep -q ":$PORT"; then

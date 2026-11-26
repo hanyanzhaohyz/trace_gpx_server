@@ -1,12 +1,7 @@
-import {
-  YEAR_COLORS_BY_TONE,
-  colorForYearTone,
-  type MapTone,
-} from './palette'
-import type { GpsTrack } from '../types'
+import { YEAR_COLORS, colorForYearTone } from './palette'
+import type { GpsTrack, MapStyleId } from '../types'
 
-/** @deprecated 用 YEAR_COLORS_BY_TONE；保留兼容默认浅色 */
-export const YEAR_COLORS = YEAR_COLORS_BY_TONE.light
+export { YEAR_COLORS }
 
 /**
  * 只从文件名解析年份。
@@ -27,16 +22,16 @@ export function trackYear(track: { fileName: string }): number | null {
 
 export function colorForYear(
   year: number | null | undefined,
-  tone: MapTone = 'light',
+  style: MapStyleId = 'amap-normal',
 ): string {
-  return colorForYearTone(year, tone)
+  return colorForYearTone(year, style)
 }
 
 export function colorForTrackYear(
   track: GpsTrack,
-  tone: MapTone = 'light',
+  style: MapStyleId = 'amap-normal',
 ): string {
-  return colorForYear(trackYear(track), tone)
+  return colorForYear(trackYear(track), style)
 }
 
 /** 从轨迹列表收集出现过的年份（升序），供图例使用 */

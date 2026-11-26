@@ -3,7 +3,6 @@ import type { GpsTrack, MapStyleId } from '../types'
 import { MAP_STYLE_LIST } from '../lib/mapStyles'
 import { aggregateVisibleStats } from '../lib/aggregateStats'
 import type { ColorFilter } from '../lib/colorFilter'
-import { mapTone } from '../lib/palette'
 import {
   SPEED_CLASSES,
   colorForSpeed,
@@ -30,6 +29,8 @@ interface SidebarProps {
   mobile?: boolean
   open?: boolean
   onClose?: () => void
+  /** 桌面端收起控件栏 */
+  onCollapse?: () => void
   /** 地图当前可见轨迹（已按时间/年份等过滤） */
   mapTracks: GpsTrack[]
   /** 原始全量，用于时间跨度与年份图例 */
@@ -62,6 +63,7 @@ export function Sidebar({
   mobile = false,
   open = true,
   onClose,
+  onCollapse,
   mapTracks,
   sourceTracks,
   overviewStatsOverride = null,
@@ -85,7 +87,6 @@ export function Sidebar({
   error,
   status,
 }: SidebarProps) {
-  const tone = mapTone(mapStyle)
   const inputRef = useRef<HTMLInputElement>(null)
   const [dragOver, setDragOver] = useState(false)
   const [draftTimeRange, setDraftTimeRange] = useState<TimeRange>(timeRange)
@@ -181,6 +182,7 @@ export function Sidebar({
       onTouchMove={mobile ? stopMapGesture : undefined}
       onWheel={mobile ? stopMapGesture : undefined}
     >
+      <div className="sidebar__scroll">
       {mobile && (
         <div className="sidebar__sheet-bar">
           <span className="sidebar__handle" aria-hidden />
@@ -223,10 +225,21 @@ export function Sidebar({
             <circle cx="32" cy="14" r="2.4" fill="currentColor" />
           </svg>
         </div>
-        <div>
+        <div className="sidebar__brand-text">
           <h1 className="brand-title">迹 Trace</h1>
           <p className="brand-sub">把每一次出行，画进地图</p>
         </div>
+        {!mobile && onCollapse && (
+          <button
+            type="button"
+            className="sidebar__collapse"
+            onClick={onCollapse}
+            title="隐藏控件栏"
+            aria-label="隐藏控件栏"
+          >
+            隐藏
+          </button>
+        )}
       </header>
 
       <div
@@ -333,7 +346,7 @@ export function Sidebar({
                   >
                     <span
                       className="speed-legend__dot"
-                      style={{ background: colorForYear(y, tone) }}
+                      style={{ background: colorForYear(y, mapStyle) }}
                     />
                     <span className="speed-legend__label">{y}</span>
                   </button>
@@ -358,7 +371,7 @@ export function Sidebar({
                   >
                     <span
                       className="speed-legend__dot"
-                      style={{ background: colorForSpeed(c.id, tone) }}
+                      style={{ background: colorForSpeed(c.id, mapStyle) }}
                     />
                     <span className="speed-legend__label">{c.label}</span>
                     <span className="speed-legend__hint">{c.hint}</span>
@@ -401,10 +414,7 @@ export function Sidebar({
             style={{
               width: pointSize * 2 + 4,
               height: pointSize * 2 + 4,
-              background: colorForYear(
-                yearLegend[0] ?? 2024,
-                tone,
-              ),
+              background: colorForYear(yearLegend[0] ?? 2024, mapStyle),
             }}
           />
           <span>拖动调节地图上轨迹点的显示大小</span>
@@ -509,21 +519,18 @@ export function Sidebar({
               type="button"
               className={`style-btn${mapStyle === style.id ? ' is-active' : ''}`}
               onClick={() => onMapStyle(style.id)}
-              title={style.hint}
             >
               <span
                 className="style-btn__swatch"
                 style={{ background: style.swatch }}
                 aria-hidden
               />
-              <span className="style-btn__text">
-                <span className="style-btn__label">{style.label}</span>
-                <span className="style-btn__hint">{style.hint}</span>
-              </span>
+              <span className="style-btn__label">{style.label}</span>
             </button>
           ))}
         </div>
       </section>
+      </div>
     </aside>
   )
 }

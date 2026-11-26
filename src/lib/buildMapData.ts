@@ -7,7 +7,7 @@ import {
   type SpeedClassId,
 } from './speedClass'
 import { colorForYear, trackYear } from './yearColor'
-import type { MapTone } from './palette'
+import type { MapStyleId } from '../types'
 import type { GpsTrack } from '../types'
 
 const MAX_GAP_MS = 30 * 60 * 1000
@@ -68,7 +68,7 @@ export function trackToSpeedGeoJSON(
   track: GpsTrack,
   classes: SpeedClassId[],
   onlyClass?: SpeedClassId | null,
-  tone: MapTone = 'light',
+  style: MapStyleId = 'amap-normal',
 ): GeoJSON.FeatureCollection {
   const buckets: Record<SpeedClassId, [number, number][]> = {
     walk: [],
@@ -96,7 +96,7 @@ export function trackToSpeedGeoJSON(
         kind: 'speed',
         speedClass: id,
         trackId: track.id,
-        color: colorForSpeed(id, tone),
+        color: colorForSpeed(id, style),
         pointSize: track.pointSize,
         pointCount: coords.length,
         name: SPEED_LABEL[id],
@@ -117,7 +117,7 @@ export function buildMergedDisplayGeoJSON(
   colorMode: PointColorMode,
   colorFilter: ColorFilter,
   speedCache: Map<string, SpeedClassId[]>,
-  tone: MapTone = 'light',
+  style: MapStyleId = 'amap-normal',
 ): GeoJSON.FeatureCollection {
   const visible = tracks.filter((t) => t.visible && t.points.length > 0)
 
@@ -144,7 +144,7 @@ export function buildMergedDisplayGeoJSON(
         properties: {
           kind: 'year',
           year: y,
-          color: colorForYear(y, tone),
+          color: colorForYear(y, style),
           name: String(y),
           pointCount: coords.length,
         },
@@ -188,7 +188,7 @@ export function buildMergedDisplayGeoJSON(
       properties: {
         kind: 'speed',
         speedClass: id,
-        color: colorForSpeed(id, tone),
+        color: colorForSpeed(id, style),
         pointCount: coords.length,
         name: SPEED_LABEL[id],
       },

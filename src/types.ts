@@ -47,4 +47,17 @@ export interface GpsTrack {
   createdAt: number
 }
 
-export type MapStyleId = 'positron' | 'bright' | 'dark' | 'fiord'
+export type MapStyleId =
+  | 'amap-normal'
+  | 'amap-light'
+  | 'amap-whitesmoke'
+  | 'amap-fresh'
+  | 'amap-grey'
+  | 'amap-dark'
+  | 'amap-macaron'
+  | 'amap-darkblue'
+  | 'amap-sat-road'
+  | 'positron'
+  | 'bright'
+  | 'dark'
+  | 'fiord'

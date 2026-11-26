@@ -6,6 +6,10 @@ export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 export PATH="$PREFIX/bin:$PATH"
 export HOME="${HOME:-/data/data/com.termux/files/home}"
 
+# 载入高德 Key（Termux profile.d）
+# shellcheck disable=SC1091
+[[ -f "$PREFIX/etc/profile.d/amap.sh" ]] && source "$PREFIX/etc/profile.d/amap.sh"
+
 APP_SD="/sdcard/trace_gps"
 APP_HOME="$HOME/trace_gps"
 PORT="${PORT:-4173}"
@@ -76,8 +80,19 @@ fi
 
 echo "[迹] 源码: $APP_HOME/src"
 echo "[迹] GPX_DIR=$GPX_DIR"
+if [[ -n "${AMAP_KEY:-}" && -n "${AMAP_SECURITY_JS_CODE:-}" ]]; then
+  echo "[迹] 高德 JS API: 已配置 Key"
+else
+  echo "[迹] 高德 JS API: 未配置（请 export AMAP_KEY / AMAP_SECURITY_JS_CODE）"
+fi
 echo "[迹] 启动 http://0.0.0.0:$PORT"
 termux-wake-lock 2>/dev/null || true
 # 手机内存紧，给 Node 更大堆，避免 GPX 缓存 OOM
 export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}"
-exec env PORT="$PORT" GPX_DIR="$GPX_DIR" NODE_OPTIONS="$NODE_OPTIONS" node server.mjs
+exec env \
+  PORT="$PORT" \
+  GPX_DIR="$GPX_DIR" \
+  NODE_OPTIONS="$NODE_OPTIONS" \
+  AMAP_KEY="${AMAP_KEY:-}" \
+  AMAP_SECURITY_JS_CODE="${AMAP_SECURITY_JS_CODE:-}" \
+  node server.mjs

@@ -20,6 +20,17 @@ import type { GpsTrack, MapStyleId, TrackStats } from './types'
 import './App.css'
 
 const MOBILE_MQ = '(max-width: 860px)'
+/** 桌面控件栏固定宽度（不再拖拽调宽） */
+const SIDEBAR_WIDTH = 360
+const SIDEBAR_COLLAPSED_KEY = 'trace.sidebarCollapsed.v3'
+
+function readSidebarCollapsed(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
 
 export default function App() {
   /** 设备摘要（无点）或回退时的全量带点轨迹 */
@@ -44,6 +55,7 @@ export default function App() {
     typeof window !== 'undefined' ? window.matchMedia(MOBILE_MQ).matches : false,
   )
   const [panelOpen, setPanelOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(readSidebarCollapsed)
   const tracksRef = useRef(tracks)
   tracksRef.current = tracks
   const defaultTimeReadyRef = useRef(false)
@@ -184,9 +196,28 @@ export default function App() {
 
   const closePanel = useCallback(() => setPanelOpen(false), [])
 
+  const setSidebarOpen = useCallback((open: boolean) => {
+    setSidebarCollapsed(!open)
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, open ? '0' : '1')
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
+  const effectiveSidebarWidth =
+    isMobile || sidebarCollapsed ? 0 : SIDEBAR_WIDTH
+
   return (
     <div
-      className={`app${isMobile ? ' app--mobile' : ''}${panelOpen ? ' is-panel-open' : ''}`}
+      className={[
+        'app',
+        isMobile ? 'app--mobile' : '',
+        panelOpen ? 'is-panel-open' : '',
+        !isMobile && sidebarCollapsed ? 'is-sidebar-collapsed' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       <main className="stage">
         <MapView
@@ -203,9 +234,22 @@ export default function App() {
           colorFilter={colorFilter}
           pointSize={pointSize}
           interactive={!isMobile || !panelOpen}
+          sidebarWidth={effectiveSidebarWidth}
           onMapStatus={setStatus}
         />
       </main>
+
+      {!isMobile && sidebarCollapsed && (
+        <button
+          type="button"
+          className="sidebar-expand"
+          aria-label="展开控件栏"
+          title="展开控件栏"
+          onClick={() => setSidebarOpen(true)}
+        >
+          控件
+        </button>
+      )}
 
       {isMobile && (
         <>
@@ -247,6 +291,7 @@ export default function App() {
         mobile={isMobile}
         open={!isMobile || panelOpen}
         onClose={closePanel}
+        onCollapse={!isMobile ? () => setSidebarOpen(false) : undefined}
         mapTracks={useServerMap ? tracks : [...localTracks, ...tracks]}
         sourceTracks={sourceTracks}
         overviewStatsOverride={useServerMap ? overviewStats : null}

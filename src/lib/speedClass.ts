@@ -1,4 +1,5 @@
-import { SPEED_COLORS_BY_TONE, type MapTone } from './palette'
+import { colorForSpeedTone } from './palette'
+import type { MapStyleId } from '../types'
 
 /** 按瞬时速度划分：步行 / 驾车 / 飞行 */
 
@@ -25,7 +26,7 @@ export const SPEED_CLASSES: SpeedClassMeta[] = [
     id: 'walk',
     label: '步行',
     hint: '< 6 km/h',
-    color: SPEED_COLORS_BY_TONE.light.walk,
+    color: colorForSpeedTone('walk'),
     minKmh: 0,
     maxKmh: 6,
   },
@@ -33,7 +34,7 @@ export const SPEED_CLASSES: SpeedClassMeta[] = [
     id: 'car',
     label: '驾车',
     hint: '6–140 km/h',
-    color: SPEED_COLORS_BY_TONE.light.car,
+    color: colorForSpeedTone('car'),
     minKmh: 6,
     maxKmh: 140,
   },
@@ -41,21 +42,17 @@ export const SPEED_CLASSES: SpeedClassMeta[] = [
     id: 'plane',
     label: '飞行',
     hint: '> 140 km/h',
-    color: SPEED_COLORS_BY_TONE.light.plane,
+    color: colorForSpeedTone('plane'),
     minKmh: 140,
     maxKmh: Infinity,
   },
 ]
 
-/** @deprecated 用 colorForSpeed(id, tone) */
-export const SPEED_CLASS_COLOR: Record<SpeedClassId, string> =
-  SPEED_COLORS_BY_TONE.light
-
 export function colorForSpeed(
   id: SpeedClassId,
-  tone: MapTone = 'light',
+  style: MapStyleId = 'amap-normal',
 ): string {
-  return SPEED_COLORS_BY_TONE[tone][id]
+  return colorForSpeedTone(id, style)
 }
 
 export function classifySpeedKmh(kmh: number | null | undefined): SpeedClassId {
